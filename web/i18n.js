@@ -26,6 +26,8 @@ const EN = {
   "Posiciones": "Positions", "Pausado": "Paused", "Reconectando": "Reconnecting",
   "En vivo · fotos": "Live · snapshots", "Sin conexión con la cámara. Reintentando…": "No connection to the camera. Retrying…",
   "Foto guardada en Imágenes ▸ CamPanel": "Photo saved to Pictures ▸ CamPanel",
+  "Vídeo limitado a fotos. Para vídeo fluido instala ffmpeg: brew install ffmpeg": "Video limited to snapshots. For smooth video install ffmpeg: brew install ffmpeg",
+  "No se pudo iniciar ffmpeg": "Could not start ffmpeg",
   "Guardar posición actual": "Save current position", "Borrar posición": "Delete position",
   "Nueva posición": "New position", "Se guardará hacia donde apunta ahora la cámara.": "It will save where the camera is pointing now.",
   "Guardar": "Save", "Cancelar": "Cancel", "Aceptar": "OK", "Borrar": "Delete",

@@ -21,7 +21,7 @@ control PTZ con posiciones guardadas y configuración de red y WiFi.
 
 ## Características
 
-- Vídeo en directo (MJPEG, con respaldo por fotos).
+- Vídeo en directo: RTSP/H.264 con ffmpeg (fluido), MJPEG o fotos como respaldo.
 - Joystick PTZ (ratón o flechas del teclado), velocidad y posiciones con miniatura.
 - Búsqueda automática de cámaras en la red local (según la máscara real, hasta /22).
 - Foto instantánea guardada en `Imágenes/CamPanel`.
@@ -30,6 +30,26 @@ control PTZ con posiciones guardadas y configuración de red y WiFi.
 - La contraseña se guarda en el Llavero de macOS, nunca en disco.
 - Sin dependencias: Swift + WebKit, sin servicios con root ni Python.
 - Interfaz en español e inglés (sigue el idioma del sistema; otros idiomas usan inglés).
+
+## Vídeo fluido (recomendado: ffmpeg)
+
+Muchas Foscam sirven el MJPEG de forma muy lenta o directamente no lo sirven; entonces
+solo se pueden pedir fotos sueltas (aprox. 0,4 por segundo). Si tienes `ffmpeg`, CamPanel
+usa el flujo H.264 por RTSP de la cámara y lo convierte al vuelo:
+
+```bash
+brew install ffmpeg
+```
+
+No hace falta configurar nada más: la app lo detecta (`/opt/homebrew/bin`, `/usr/local/bin`).
+La esquina del vídeo indica la fuente (`RTSP` o `MJPEG`) y los fotogramas por segundo.
+
+Avanzado: `CAMPANEL_RTSP_URL=rtsp://…` sustituye la URL de la cámara (por ejemplo, un
+restream de go2rtc o Frigate), y `CAMPANEL_DEBUG=1` guarda el registro de ffmpeg en
+`~/Library/Logs/CamPanel-ffmpeg.log`.
+
+> Nota: mientras se ve el vídeo, `ffmpeg` recibe usuario y contraseña en su línea de
+> órdenes, que otros procesos de tu Mac pueden ver con `ps`.
 
 ## Compatibilidad
 
@@ -59,6 +79,7 @@ clic derecho ▸ Abrir. Al conectar, concede el permiso de **Red local**.
 
 ```bash
 python3 tools/mock_camera.py   # 127.0.0.1:8089  usuario: admin  clave: test
+bash tools/probe_stream.sh     # diagnóstico: qué rutas de vídeo admite tu cámara
 ```
 
 ## Aviso
@@ -99,7 +120,7 @@ PTZ control with presets, and network/WiFi configuration.
 
 ### Features
 
-- Live video (MJPEG, with snapshot fallback).
+- Live video: RTSP/H.264 via ffmpeg (smooth), with MJPEG or snapshots as fallback.
 - PTZ joystick (mouse or arrow keys), speed and presets with thumbnails.
 - Automatic camera discovery on the local network (uses the real netmask, up to /22).
 - One-click snapshot saved to `Pictures/CamPanel`.
@@ -108,6 +129,26 @@ PTZ control with presets, and network/WiFi configuration.
 - The password is stored in the macOS Keychain, never on disk.
 - No dependencies: Swift + WebKit, no root services, no Python.
 - Interface in Spanish and English (follows the system language; other languages fall back to English).
+
+### Smooth video (recommended: ffmpeg)
+
+Many Foscam cameras serve MJPEG very slowly or not at all, which leaves only snapshots
+(about 0.4 per second). If `ffmpeg` is installed, CamPanel uses the camera's H.264 RTSP
+stream and converts it on the fly:
+
+```bash
+brew install ffmpeg
+```
+
+Nothing else to configure: the app detects it (`/opt/homebrew/bin`, `/usr/local/bin`).
+The corner of the video shows the source (`RTSP` or `MJPEG`) and the frames per second.
+
+Advanced: `CAMPANEL_RTSP_URL=rtsp://…` overrides the camera URL (for example a go2rtc or
+Frigate restream), and `CAMPANEL_DEBUG=1` writes ffmpeg's log to
+`~/Library/Logs/CamPanel-ffmpeg.log`.
+
+> Note: while video is playing, `ffmpeg` receives the user name and password on its
+> command line, which other processes on your Mac can see with `ps`.
 
 ### Compatibility
 
@@ -135,6 +176,7 @@ Grant the **Local Network** permission when connecting.
 
 ```bash
 python3 tools/mock_camera.py   # 127.0.0.1:8089  user: admin  password: test
+bash tools/probe_stream.sh     # diagnostics: which video routes your camera supports
 ```
 
 ### Disclaimer

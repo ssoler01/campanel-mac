@@ -184,7 +184,8 @@ function show(page) {
 $("nav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.page); });
 
 /* ---------------- vídeo ---------------- */
-let vAbort = null, vToken = 0, lastUrl = null, frames = 0, fpsTimer = null;
+let vAbort = null, vToken = 0, lastUrl = null, frames = 0, fpsTimer = null, streamSource = "";
+let hintShown = false;
 
 function setLive(on, label) {
   $("livePill").classList.toggle("on", on);
@@ -204,13 +205,17 @@ function paint(bytes) {
 }
 
 function indexOfPair(buf, a, b, from) {
-  for (let i = from; i < buf.length - 1; i++) if (buf[i] === a && buf[i + 1] === b) return i;
-  return -1;
+  for (let i = from; ; i++) {
+    i = buf.indexOf(a, i);               // búsqueda nativa: mucho más rápida que un bucle JS
+    if (i < 0 || i >= buf.length - 1) return -1;
+    if (buf[i + 1] === b) return i;
+  }
 }
 
 async function readStream(token, signal) {
   const r = await fetch(`${API}stream?t=${Date.now()}`, { signal });
   if (!r.ok || !r.body) throw new Error("Sin flujo MJPEG");
+  streamSource = r.headers.get("X-Stream-Source") || "MJPEG";
   const reader = r.body.getReader();
   let buf = new Uint8Array(0), gotFrame = false;
   while (token === vToken) {
@@ -237,7 +242,12 @@ async function readStream(token, signal) {
 }
 
 async function pollSnapshots(token) {
+  streamSource = "";
   setLive(true, "En vivo · fotos");
+  if (!hintShown) {
+    hintShown = true;
+    toast(t("Vídeo limitado a fotos. Para vídeo fluido instala ffmpeg: brew install ffmpeg"), "err");
+  }
   while (token === vToken) {
     const t0 = performance.now();
     const r = await fetch(`${API}snap?t=${Date.now()}`);
@@ -256,7 +266,8 @@ async function startVideo() {
   setLive(false, "Conectando");
   fpsTimer = setInterval(() => {
     const img = $("cam");
-    $("hudMeta").textContent = img.naturalWidth ? `${img.naturalWidth}×${img.naturalHeight} · ${frames} fps` : "";
+    $("hudMeta").textContent = img.naturalWidth
+      ? `${img.naturalWidth}×${img.naturalHeight} · ${frames} fps${streamSource ? " · " + streamSource : ""}` : "";
     frames = 0;
   }, 1000);
   let failures = 0;

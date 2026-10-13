@@ -1,6 +1,7 @@
 import Cocoa
 import WebKit
 import Security
+import Network
 
 // MARK: - Llavero
 
@@ -134,6 +135,63 @@ final class FlatXML: NSObject, XMLParserDelegate {
     }
 }
 
+// MARK: - Puente TCP local
+
+/// macOS impide a los programas lanzados por una app acceder a la red local si no
+/// tienen su propio permiso. La app sí lo tiene, así que abre ella la conexión con la
+/// cámara y ffmpeg solo habla con este puente en 127.0.0.1 (exento de esa restricción).
+final class TCPRelay {
+    private let listener: NWListener
+    private let queue = DispatchQueue(label: "campanel.relay")
+    private let targetHost: NWEndpoint.Host
+    private let targetPort: NWEndpoint.Port
+    private var connections: [NWConnection] = []
+    private(set) var port: UInt16 = 0
+
+    init?(host: String, port: Int) {
+        guard let tp = NWEndpoint.Port(rawValue: UInt16(clamping: port)) else { return nil }
+        let params = NWParameters.tcp
+        params.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        guard let l = try? NWListener(using: params) else { return nil }
+        listener = l
+        targetHost = NWEndpoint.Host(host)
+        targetPort = tp
+
+        let ready = DispatchSemaphore(value: 0)
+        l.stateUpdateHandler = { if case .ready = $0 { ready.signal() } }
+        l.newConnectionHandler = { [weak self] inbound in self?.accept(inbound) }
+        l.start(queue: queue)
+        guard ready.wait(timeout: .now() + 2) == .success, let p = l.port?.rawValue else {
+            l.cancel()
+            return nil
+        }
+        self.port = p
+    }
+
+    private func accept(_ inbound: NWConnection) {
+        let outbound = NWConnection(host: targetHost, port: targetPort, using: .tcp)
+        connections += [inbound, outbound]
+        inbound.start(queue: queue)
+        outbound.start(queue: queue)
+        pump(inbound, outbound)
+        pump(outbound, inbound)
+    }
+
+    private func pump(_ from: NWConnection, _ to: NWConnection) {
+        from.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, done, error in
+            if let data, !data.isEmpty { to.send(content: data, completion: .contentProcessed { _ in }) }
+            if done || error != nil { from.cancel(); to.cancel(); return }
+            self?.pump(from, to)
+        }
+    }
+
+    func stop() {
+        listener.cancel()
+        connections.forEach { $0.cancel() }
+        connections.removeAll()
+    }
+}
+
 // MARK: - Esquema campanel:// (interfaz + puente a la cámara)
 
 final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate {
@@ -141,6 +199,8 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
     private var live: [ObjectIdentifier: WKURLSchemeTask] = [:]
     private var streamTasks: [ObjectIdentifier: URLSessionDataTask] = [:]
     private var streamOwner: [Int: WKURLSchemeTask] = [:]
+    private var ffmpegProcs: [ObjectIdentifier: Process] = [:]
+    private var relays: [ObjectIdentifier: TCPRelay] = [:]
 
     private lazy var api: URLSession = {
         let c = URLSessionConfiguration.ephemeral
@@ -185,6 +245,18 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
         live[id] = nil
         streamTasks[id]?.cancel()
         streamTasks[id] = nil
+        ffmpegProcs[id]?.terminate()
+        ffmpegProcs[id] = nil
+        relays[id]?.stop()
+        relays[id] = nil
+    }
+
+    /// Cierra los procesos de vídeo al salir de la app.
+    func shutdown() {
+        ffmpegProcs.values.forEach { $0.terminate() }
+        ffmpegProcs.removeAll()
+        relays.values.forEach { $0.stop() }
+        relays.removeAll()
     }
 
     // MARK: helpers de respuesta
@@ -371,8 +443,103 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
         }
     }
 
+    private static func findFFmpeg() -> String? {
+        ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// Vídeo fluido: la cámara sirve H.264 por RTSP; ffmpeg lo convierte a una
+    /// secuencia de JPEG que la interfaz sabe pintar. La URL puede sustituirse con
+    /// la variable de entorno CAMPANEL_RTSP_URL (p. ej. un restream de go2rtc).
+    private func streamViaFFmpeg(_ t: WKURLSchemeTask, _ ffmpeg: String) {
+        guard let u = camera.url("/cgi-bin/CGIProxy.fcgi", ["cmd": "getPortInfo"]) else {
+            return fail(t, "URL inválida")
+        }
+        api.dataTask(with: u) { [self] data, _, _ in
+            DispatchQueue.main.async { [self] in
+                var port = camera.port
+                if let d = data, let r = FlatXML.parse(d), let mp = Int(r["mediaPort"] ?? ""), mp > 0 { port = mp }
+                var c = URLComponents()
+                if let custom = ProcessInfo.processInfo.environment["CAMPANEL_RTSP_URL"],
+                   let parsed = URLComponents(string: custom) {
+                    c = parsed
+                } else {
+                    c.scheme = "rtsp"
+                    c.percentEncodedUser = Camera.encode(camera.user)
+                    c.percentEncodedPassword = Camera.encode(camera.pwd)
+                    c.host = camera.host
+                    c.port = port
+                    c.path = "/videoMain"
+                }
+                startFFmpeg(t, ffmpeg, c)
+            }
+        }.resume()
+    }
+
+    private func startFFmpeg(_ t: WKURLSchemeTask, _ ffmpeg: String, _ target: URLComponents) {
+        guard isLive(t), let reqURL = t.request.url else { return }
+        guard let host = target.host,
+              let relay = TCPRelay(host: host, port: target.port ?? 554) else {
+            return fail(t, "No se pudo iniciar ffmpeg")
+        }
+        let id = ObjectIdentifier(t as AnyObject)
+        relays[id] = relay
+        var local = target
+        local.host = "127.0.0.1"
+        local.port = Int(relay.port)
+        guard let rtspURL = local.string else { return fail(t, "No se pudo iniciar ffmpeg") }
+
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: ffmpeg)
+        p.arguments = ["-hide_banner", "-loglevel", "error", "-nostdin",
+                       "-rtsp_transport", "tcp", "-i", rtspURL, "-an",
+                       "-vf", "scale='min(1280,iw)':-2", "-r", "15",
+                       "-c:v", "mjpeg", "-q:v", "5", "-f", "image2pipe", "pipe:1"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardInput = FileHandle.nullDevice
+        if ProcessInfo.processInfo.environment["CAMPANEL_DEBUG"] != nil {
+            // Registro de ffmpeg para diagnóstico: ~/Library/Logs/CamPanel-ffmpeg.log
+            let log = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Logs/CamPanel-ffmpeg.log")
+            FileManager.default.createFile(atPath: log.path, contents: nil)
+            p.standardError = try? FileHandle(forWritingTo: log)
+            p.arguments?[2] = "info"          // -loglevel info
+        } else {
+            p.standardError = FileHandle.nullDevice
+        }
+
+        let finish = { [self] in
+            relays[id]?.stop()
+            relays[id] = nil
+            ffmpegProcs[id] = nil
+            guard isLive(t) else { return }
+            live[id] = nil
+            t.didFinish()
+        }
+        out.fileHandleForReading.readabilityHandler = { h in
+            let d = h.availableData
+            if d.isEmpty { h.readabilityHandler = nil; return }
+            DispatchQueue.main.async { [self] in
+                if isLive(t) { t.didReceive(d) } else { p.terminate() }
+            }
+        }
+        p.terminationHandler = { _ in
+            out.fileHandleForReading.readabilityHandler = nil
+            DispatchQueue.main.async { finish() }
+        }
+        do { try p.run() } catch { relay.stop(); relays[id] = nil; return fail(t, "No se pudo iniciar ffmpeg") }
+        ffmpegProcs[id] = p
+        let r = HTTPURLResponse(url: reqURL, statusCode: 200, httpVersion: "HTTP/1.1",
+                                headerFields: ["Content-Type": "application/octet-stream",
+                                               "Cache-Control": "no-store",
+                                               "X-Stream-Source": "RTSP"])!
+        t.didReceive(r)
+    }
+
     private func stream(_ t: WKURLSchemeTask) {
         guard camera.connected else { return fail(t, "No conectado", status: 401) }
+        if let ffmpeg = Self.findFFmpeg() { return streamViaFFmpeg(t, ffmpeg) }
         guard let u = camera.url("/cgi-bin/CGIStream.cgi", ["cmd": "GetMJPEGStream"]) else { return fail(t, "URL inválida") }
         let task = streamSession.dataTask(with: u)
         streamOwner[task.taskIdentifier] = t
@@ -457,6 +624,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
+    func applicationWillTerminate(_ n: Notification) { handler.shutdown() }
 
     /// Español si el idioma preferido del sistema es español; inglés en el resto.
     private let isSpanish = Locale.preferredLanguages.first?.lowercased().hasPrefix("es") ?? false
