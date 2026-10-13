@@ -513,7 +513,12 @@ $("scanWifi").addEventListener("click", () => run(async () => {
       row.onclick = () => { $("ssid").value = decode(parts[0]); $("wpsk").focus(); };
       list.append(row);
     }
-    if (!list.children.length) list.innerHTML = ""; const em = document.createElement("div"); em.className = "empty"; em.textContent = t("La cámara no ve ninguna red."); list.append(em);
+    if (!list.children.length) {
+      const em = document.createElement("div");
+      em.className = "empty";
+      em.textContent = t("La cámara no ve ninguna red.");
+      list.append(em);
+    }
   } finally { btn.disabled = false; btn.textContent = t("Buscar"); }
 }));
 

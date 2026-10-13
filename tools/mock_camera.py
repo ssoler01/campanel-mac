@@ -12,16 +12,30 @@ import time
 import urllib.parse
 from pathlib import Path
 
-USER, PWD, PORT = "admin", "test", 8089
+import os
+USER, PWD, PORT = "admin", os.environ.get("MOCK_PWD", "test"), int(os.environ.get("MOCK_PORT", "8089"))
 
 
 def make_frame() -> bytes:
-    """Degradado 640x360 generado en Python puro; sips lo convierte a JPEG."""
+    """Escena sencilla 640x360 (salón esquemático) en Python puro; sips la pasa a JPEG."""
     import struct, subprocess, tempfile, zlib
     w, h = 640, 360
+
+    def px(x, y):
+        if 60 <= x < 360 and 205 <= y < 300:                    # sofá
+            return (96, 118, 150) if (y < 235 or x < 78 or x >= 342) else (78, 98, 128)
+        if 440 <= x < 580 and 50 <= y < 200:                    # ventana
+            if x in range(508, 512) or y in range(122, 126) or x < 444 or x >= 576 or y < 54 or y >= 196:
+                return (240, 240, 240)
+            return (150 + (y - 50) // 5, 190 + (y - 50) // 8, 235)
+        if 380 <= x < 396 and 120 <= y < 250:                   # lámpara de pie
+            return (60, 60, 60) if y > 150 else (250, 232, 170)
+        if y >= 262:                                            # suelo
+            return (122 - (y - 262) // 4, 92 - (y - 262) // 5, 70)
+        return (222 - y // 12, 212 - y // 12, 198 - y // 14)    # pared
+
     rows = b"".join(
-        b"\x00" + b"".join(bytes((x * 255 // w, y * 255 // h, 170)) for x in range(w))
-        for y in range(h))
+        b"\x00" + b"".join(bytes(px(x, y)) for x in range(w)) for y in range(h))
     def chunk(t, d):
         c = struct.pack(">I", len(d)) + t + d
         return c + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)

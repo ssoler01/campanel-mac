@@ -10,6 +10,15 @@ control PTZ con posiciones guardadas y configuración de red y WiFi.
 > «Foscam» es marca de sus respectivos propietarios y se menciona solo para
 > indicar compatibilidad.
 
+## Capturas
+
+![En vivo](docs/screenshots/live.png)
+
+<p>
+  <img src="docs/screenshots/network.png" width="49%" alt="Red">
+  <img src="docs/screenshots/wifi.png" width="49%" alt="WiFi">
+</p>
+
 ## Características
 
 - Vídeo en directo (MJPEG, con respaldo por fotos).
@@ -78,6 +87,15 @@ PTZ control with presets, and network/WiFi configuration.
 > Independent project. Not affiliated with, endorsed or sponsored by Foscam.
 > "Foscam" is a trademark of its respective owners and is mentioned only to
 > indicate compatibility.
+
+### Screenshots
+
+![Live view](docs/screenshots/live.png)
+
+<p>
+  <img src="docs/screenshots/network.png" width="49%" alt="Network">
+  <img src="docs/screenshots/wifi.png" width="49%" alt="WiFi">
+</p>
 
 ### Features
 
