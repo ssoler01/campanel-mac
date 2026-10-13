@@ -68,6 +68,45 @@ final class Camera {
     }
 }
 
+extension Camera {
+    /// Hosts de la red local según la máscara real de cada interfaz Ethernet/WiFi (en*).
+    /// Se admiten redes hasta /22 (1022 equipos); si es mayor se explora el /24 del propio Mac.
+    static func lanHosts() -> [String] {
+        func dotted(_ v: UInt32) -> String { "\(v >> 24).\((v >> 16) & 255).\((v >> 8) & 255).\(v & 255)" }
+        var ranges = Set<[UInt32]>()
+        var ifap: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifap) == 0, var ptr = ifap else { return [] }
+        defer { freeifaddrs(ifap) }
+        while true {
+            let ifa = ptr.pointee
+            if let addr = ifa.ifa_addr, let mask = ifa.ifa_netmask,
+               addr.pointee.sa_family == UInt8(AF_INET),
+               (ifa.ifa_flags & UInt32(IFF_UP)) != 0, (ifa.ifa_flags & UInt32(IFF_LOOPBACK)) == 0,
+               String(cString: ifa.ifa_name).hasPrefix("en") {
+                let ip = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) {
+                    UInt32(bigEndian: $0.pointee.sin_addr.s_addr)
+                }
+                var m = mask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) {
+                    UInt32(bigEndian: $0.pointee.sin_addr.s_addr)
+                }
+                if isLocal(dotted(ip)) && !dotted(ip).hasPrefix("127.") {
+                    if m < 0xFFFF_FC00 { m = 0xFFFF_FF00 }          // más grande que /22 → solo el /24
+                    if m > 0xFFFF_FF00 { m = 0xFFFF_FF00 }          // más pequeña que /24 → /24 (cubre sobradamente)
+                    let net = ip & m, bcast = net | ~m
+                    ranges.insert([net + 1, bcast - 1])
+                }
+            }
+            guard let next = ifa.ifa_next else { break }
+            ptr = next
+        }
+        var seen = Set<UInt32>(), out: [String] = []
+        for r in ranges.sorted(by: { $0[0] < $1[0] }) {
+            for v in r[0]...r[1] where seen.insert(v).inserted { out.append(dotted(v)) }
+        }
+        return out
+    }
+}
+
 /// Convierte <CGI_Result><a>1</a><b>2</b></CGI_Result> en [a: 1, b: 2]
 final class FlatXML: NSObject, XMLParserDelegate {
     private var result: [String: String] = [:]
@@ -136,6 +175,7 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
         case "/api/snap": snapshot(task, save: false)
         case "/api/savesnap": snapshot(task, save: true)
         case "/api/stream": stream(task)
+        case "/api/scan": scan(task)
         default: staticFile(task, url.path)
         }
     }
@@ -290,6 +330,45 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
                 } catch { fail(t, "No se pudo guardar: \(error.localizedDescription)") }
             }
         }.resume()
+    }
+
+    /// Busca cámaras con API Foscam en la red local probando unos pocos puertos.
+    private func scan(_ t: WKURLSchemeTask) {
+        let hosts = Camera.lanHosts()
+        let ports = [88, 89, 80, 8080]
+        let targets = hosts.flatMap { h in ports.map { (h, $0) } }
+        Task {
+            let cfg = URLSessionConfiguration.ephemeral
+            cfg.timeoutIntervalForRequest = 1.0
+            cfg.waitsForConnectivity = false
+            let session = URLSession(configuration: cfg)
+
+            @Sendable func probe(_ host: String, _ port: Int) async -> (String, Int)? {
+                guard let url = URL(string: "http://\(host):\(port)/cgi-bin/CGIProxy.fcgi?cmd=getDevInfo&usr=&pwd=") else { return nil }
+                guard let (data, _) = try? await session.data(from: url),
+                      String(data: data.prefix(512), encoding: .utf8)?.contains("<CGI_Result>") == true else { return nil }
+                return (host, port)
+            }
+
+            var found: [(String, Int)] = []
+            await withTaskGroup(of: (String, Int)?.self) { group in
+                var it = targets.makeIterator()
+                for _ in 0..<120 {
+                    guard let (h, p) = it.next() else { break }
+                    group.addTask { await probe(h, p) }
+                }
+                for await r in group {
+                    if let r { found.append(r) }
+                    if let (h, p) = it.next() { group.addTask { await probe(h, p) } }
+                }
+            }
+            func key(_ h: String) -> Int { h.split(separator: ".").reduce(0) { $0 * 256 + (Int($1) ?? 0) } }
+            let sorted = found.sorted { (key($0.0), $0.1) < (key($1.0), $1.1) }
+            DispatchQueue.main.async { [self] in
+                json(t, ["cameras": sorted.map { ["host": $0.0, "port": $0.1] },
+                         "scanned": hosts.count])
+            }
+        }
     }
 
     private func stream(_ t: WKURLSchemeTask) {

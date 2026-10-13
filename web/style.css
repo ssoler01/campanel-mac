@@ -211,3 +211,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .modal-box p { margin: 0 0 16px; color: var(--mut); white-space: pre-line; }
 .modal-box input { width: 100%; margin-bottom: 16px; font: inherit; color: var(--fg); background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- búsqueda de cámaras ---------- */
+.or { display: flex; align-items: center; gap: 10px; margin: 14px 0; color: var(--mut); font-size: 12px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.scan-results { margin-top: 10px; }
+.scan-results .msg { color: var(--mut); font-size: 12.5px; text-align: center; padding: 6px 4px; }
+.scan-results .cam {
+  display: flex; align-items: center; gap: 10px; width: 100%; font: inherit; color: var(--fg); text-align: left;
+  background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; margin-top: 6px; cursor: pointer;
+}
+.scan-results .cam:hover { border-color: var(--acc); }
+.scan-results .cam b { font-variant-numeric: tabular-nums; }
+.scan-results .cam span { margin-left: auto; color: var(--mut); font-size: 12px; font-variant-numeric: tabular-nums; }

@@ -135,6 +135,38 @@ $("loginForm").addEventListener("submit", async (ev) => {
   btn.disabled = false; btn.textContent = t("Conectar");
 });
 
+/* ---------------- búsqueda en la red ---------------- */
+$("scanBtn").addEventListener("click", async () => {
+  const btn = $("scanBtn"), box = $("scanResults");
+  btn.disabled = true; btn.textContent = t("Buscando cámaras…");
+  box.replaceChildren();
+  try {
+    const d = await get("scan");
+    if (!d.scanned) {
+      box.append(Object.assign(document.createElement("div"), { className: "msg", textContent: t("No se detectó ninguna red local. Comprueba que el Mac está conectado.") }));
+    } else if (!d.cameras.length) {
+      box.append(Object.assign(document.createElement("div"), { className: "msg", textContent: t("No se encontró ninguna cámara compatible. Comprueba que el Mac y la cámara están en la misma red.") }));
+    } else {
+      for (const c of d.cameras) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "cam";
+        const ip = document.createElement("b"); ip.textContent = c.host;
+        const pt = document.createElement("span"); pt.textContent = t("puerto {port}", { port: c.port });
+        b.append(ip, pt);
+        b.onclick = () => { $("host").value = c.host; $("port").value = c.port; $("pwd").focus(); };
+        box.append(b);
+      }
+      if (d.cameras.length === 1) {   // una sola: se rellena directamente
+        $("host").value = d.cameras[0].host; $("port").value = d.cameras[0].port;
+        $("pwd").focus();
+      }
+    }
+  } catch (e) {
+    box.append(Object.assign(document.createElement("div"), { className: "msg", textContent: e.message }));
+  }
+  btn.disabled = false; btn.textContent = t("Buscar cámaras en la red");
+});
+
 $("btnLogout").addEventListener("click", async () => {
   if (!await dialog({ title: t("¿Desconectar?"), body: t("Se borrarán las credenciales guardadas en el Llavero."), ok: t("Desconectar") })) return;
   await get("logout").catch(() => {});

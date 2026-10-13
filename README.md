@@ -14,6 +14,7 @@ control PTZ con posiciones guardadas y configuración de red y WiFi.
 
 - Vídeo en directo (MJPEG, con respaldo por fotos).
 - Joystick PTZ (ratón o flechas del teclado), velocidad y posiciones con miniatura.
+- Búsqueda automática de cámaras en la red local (según la máscara real, hasta /22).
 - Foto instantánea guardada en `Imágenes/CamPanel`.
 - Red: IP (DHCP/manual) y puertos. WiFi: buscar redes y conectar.
 - Sistema: nombre, espejo, volteo, infrarrojos y reinicio.
@@ -82,6 +83,7 @@ PTZ control with presets, and network/WiFi configuration.
 
 - Live video (MJPEG, with snapshot fallback).
 - PTZ joystick (mouse or arrow keys), speed and presets with thumbnails.
+- Automatic camera discovery on the local network (uses the real netmask, up to /22).
 - One-click snapshot saved to `Pictures/CamPanel`.
 - Network: IP (DHCP/manual) and ports. WiFi: scan and connect.
 - System: name, mirror, flip, infrared LEDs and reboot.

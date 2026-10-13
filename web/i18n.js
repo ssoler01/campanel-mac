@@ -8,6 +8,10 @@ const EN = {
   "Conecta con tu cámara": "Connect to your camera", "Dirección IP": "IP address", "Puerto": "Port",
   "Usuario": "User", "Contraseña": "Password", "Recordar en el Llavero": "Remember in Keychain",
   "Conectar": "Connect", "Conectando…": "Connecting…", "Cámara": "Camera",
+  "o": "or", "Buscar cámaras en la red": "Find cameras on the network", "Buscando cámaras…": "Looking for cameras…",
+  "puerto {port}": "port {port}",
+  "No se detectó ninguna red local. Comprueba que el Mac está conectado.": "No local network detected. Check that the Mac is connected.",
+  "No se encontró ninguna cámara compatible. Comprueba que el Mac y la cámara están en la misma red.": "No compatible camera found. Check that the Mac and the camera are on the same network.",
   // barra lateral
   "En vivo": "Live", "Red": "Network", "WiFi": "WiFi", "Sistema": "System",
   "Conectada": "Connected", "Reconectando…": "Reconnecting…", "Sin conexión": "Offline",
