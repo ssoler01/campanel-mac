@@ -9,17 +9,18 @@ const decode = (s) => { try { return decodeURIComponent(s); } catch { return s; 
 async function get(path, params = {}) {
   const r = await fetch(`${API}${path}?${qs(params)}`);
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
+  if (!r.ok) throw new Error(tr(j.error) || t("Error {code}", { code: r.status }));
   return j;
 }
 
 const CGI_ERRORS = { "-1": "Formato de orden incorrecto", "-2": "Usuario o contraseña incorrectos",
   "-3": "Acceso denegado", "-4": "Esta cámara no admite esa orden", "-5": "Demasiados usuarios conectados" };
+const cgiError = (code) => CGI_ERRORS[code] ? t(CGI_ERRORS[code]) : t("La cámara respondió con el código {code}", { code });
 
 async function cmd(name, p = {}) {
   const d = await get("cmd", { cmd: name, p: JSON.stringify(p) });
   if (d.result !== undefined && d.result !== "0") {
-    throw new Error(CGI_ERRORS[d.result] || `La cámara respondió con el código ${d.result}`);
+    throw new Error(cgiError(d.result));
   }
   return d;
 }
@@ -37,9 +38,10 @@ async function run(fn, ok) {
   catch (e) { toast(e.message, "err"); return undefined; }
 }
 
-function dialog({ title, body = "", ok = "Aceptar", danger = false, input = null }) {
+function dialog({ title, body = "", ok = t("Aceptar"), danger = false, input = null }) {
   return new Promise((resolve) => {
     $("mTitle").textContent = title;
+    $("mCancel").textContent = t("Cancelar");
     $("mBody").textContent = body;
     $("mBody").classList.toggle("hidden", !body);
     const inp = $("mInput");
@@ -82,7 +84,7 @@ function kv(el, rows) {
     el.append(a, b);
   }
 }
-const badge = (yes, a = "Sí", b = "No") => {
+const badge = (yes, a = t("Sí"), b = t("No")) => {
   const s = document.createElement("span");
   s.className = "badge " + (yes ? "ok" : "no");
   s.textContent = yes ? a : b;
@@ -96,7 +98,7 @@ function enterApp(host, port, info) {
   session = { host, port };
   $("connect").classList.add("hidden");
   $("shell").classList.remove("hidden");
-  $("camName").textContent = decode(info.devName || info.productName || "Cámara");
+  $("camName").textContent = decode(info.devName || info.productName || t("Cámara"));
   $("camModel").textContent = info.productName || "";
   $("connAddr").textContent = `${host}:${port}`;
   setConn("ok");
@@ -114,13 +116,13 @@ function leaveApp() {
 
 function setConn(state) {
   $("connDot").className = "dot" + (state === "ok" ? "" : state === "wait" ? " wait" : " off");
-  $("connText").textContent = { ok: "Conectada", wait: "Reconectando…", off: "Sin conexión" }[state];
+  $("connText").textContent = t({ ok: "Conectada", wait: "Reconectando…", off: "Sin conexión" }[state]);
 }
 
 $("loginForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const btn = $("loginBtn");
-  btn.disabled = true; btn.textContent = "Conectando…";
+  btn.disabled = true; btn.textContent = t("Conectando…");
   $("loginError").textContent = "";
   try {
     const d = await get("login", {
@@ -130,11 +132,11 @@ $("loginForm").addEventListener("submit", async (ev) => {
     $("pwd").value = "";
     enterApp($("host").value.trim(), $("port").value, d.info);
   } catch (e) { $("loginError").textContent = e.message; }
-  btn.disabled = false; btn.textContent = "Conectar";
+  btn.disabled = false; btn.textContent = t("Conectar");
 });
 
 $("btnLogout").addEventListener("click", async () => {
-  if (!await dialog({ title: "¿Desconectar?", body: "Se borrarán las credenciales guardadas en el Llavero.", ok: "Desconectar" })) return;
+  if (!await dialog({ title: t("¿Desconectar?"), body: t("Se borrarán las credenciales guardadas en el Llavero."), ok: t("Desconectar") })) return;
   await get("logout").catch(() => {});
   leaveApp();
 });
@@ -154,11 +156,11 @@ let vAbort = null, vToken = 0, lastUrl = null, frames = 0, fpsTimer = null;
 
 function setLive(on, label) {
   $("livePill").classList.toggle("on", on);
-  $("liveLabel").textContent = label;
+  $("liveLabel").textContent = t(label);
 }
 function veil(text) {
   $("veil").classList.toggle("gone", !text);
-  if (text) $("veilText").textContent = text;
+  if (text) $("veilText").textContent = t(text);
 }
 function paint(bytes) {
   const url = URL.createObjectURL(new Blob([bytes], { type: "image/jpeg" }));
@@ -253,7 +255,7 @@ $("btnFull").addEventListener("click", () => {
   if (document.fullscreenElement) document.exitFullscreen();
   else $("stage").requestFullscreen?.();
 });
-$("btnSnap").addEventListener("click", () => run(() => get("savesnap"), "Foto guardada en Imágenes ▸ CamPanel"));
+$("btnSnap").addEventListener("click", () => run(() => get("savesnap"), t("Foto guardada en Imágenes ▸ CamPanel")));
 
 /* ---------------- PTZ ---------------- */
 const NS = "http://www.w3.org/2000/svg";
@@ -371,31 +373,31 @@ async function loadPresets() {
     const nm = document.createElement("div");
     nm.className = "name"; nm.textContent = name;
     const del = document.createElement("button");
-    del.className = "del"; del.textContent = "✕"; del.title = "Borrar posición";
+    del.className = "del"; del.textContent = "✕"; del.title = t("Borrar posición");
     del.onclick = async (ev) => {
       ev.stopPropagation();
-      if (!await dialog({ title: `¿Borrar «${name}»?`, ok: "Borrar", danger: true })) return;
-      await run(() => cmd("ptzDeletePresetPoint", { name }), "Posición borrada");
+      if (!await dialog({ title: t("¿Borrar «{name}»?", { name }), ok: t("Borrar"), danger: true })) return;
+      await run(() => cmd("ptzDeletePresetPoint", { name }), t("Posición borrada"));
       store.del(thumbKey(name));
       loadPresets();
     };
-    card.onclick = () => run(() => cmd("ptzGotoPresetPoint", { name }), `Yendo a «${name}»`);
+    card.onclick = () => run(() => cmd("ptzGotoPresetPoint", { name }), t("Yendo a «{name}»", { name }));
     card.append(th, nm, del);
     box.append(card);
   }
   const add = document.createElement("div");
   add.className = "preset add";
-  add.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Guardar posición actual</span>';
+  add.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>' + t("Guardar posición actual") + '</span>';
   add.onclick = async () => {
-    const name = await dialog({ title: "Nueva posición", body: "Se guardará hacia donde apunta ahora la cámara.", ok: "Guardar", input: "" });
+    const name = await dialog({ title: t("Nueva posición"), body: t("Se guardará hacia donde apunta ahora la cámara."), ok: t("Guardar"), input: "" });
     if (!name) return;
     const thumb = await snapThumb();
-    const r = await run(() => cmd("ptzAddPresetPoint", { name }), "Posición guardada");
+    const r = await run(() => cmd("ptzAddPresetPoint", { name }), t("Posición guardada"));
     if (r && thumb) store.set(thumbKey(name), thumb);
     loadPresets();
   };
   box.append(add);
-  $("presetCount").textContent = shown ? `${shown} guardada${shown > 1 ? "s" : ""}` : "";
+  $("presetCount").textContent = shown ? t(shown > 1 ? "{n} guardadas" : "{n} guardada", { n: shown }) : "";
 }
 
 /* ---------------- red ---------------- */
@@ -417,33 +419,33 @@ async function loadNetwork() {
 $("saveIp").addEventListener("click", async () => {
   const auto = segValue("ipMode") === "1";
   const ok = await dialog({
-    title: "¿Cambiar la dirección IP?",
-    body: auto ? "La cámara pedirá una dirección por DHCP y puede cambiar de IP."
-                : `La cámara pasará a ${$("ip").value}. Si te equivocas, perderás el acceso hasta que la restablezcas.`,
-    ok: "Aplicar", danger: true,
+    title: t("¿Cambiar la dirección IP?"),
+    body: auto ? t("La cámara pedirá una dirección por DHCP y puede cambiar de IP.")
+                : t("La cámara pasará a {ip}. Si te equivocas, perderás el acceso hasta que la restablezcas.", { ip: $("ip").value }),
+    ok: t("Aplicar"), danger: true,
   });
   if (!ok) return;
   await run(() => cmd("setIpInfo", {
     isDHCP: auto ? 1 : 0, ip: $("ip").value, mask: $("mask").value,
     gate: $("gate").value, dns1: $("dns1").value, dns2: $("dns2").value,
-  }), "Enviado. Si la IP cambió, vuelve a conectar con la nueva.");
+  }), t("Enviado. Si la IP cambió, vuelve a conectar con la nueva."));
 });
 
 $("savePorts").addEventListener("click", async () => {
-  if (!await dialog({ title: "¿Cambiar los puertos?", body: "Si cambias el puerto web tendrás que volver a conectar con el nuevo.", ok: "Aplicar", danger: true })) return;
+  if (!await dialog({ title: t("¿Cambiar los puertos?"), body: t("Si cambias el puerto web tendrás que volver a conectar con el nuevo."), ok: t("Aplicar"), danger: true })) return;
   await run(() => cmd("setPortInfo", {
     webPort: $("webPort").value, httpsPort: $("httpsPort").value,
     mediaPort: $("mediaPort").value, onvifPort: $("onvifPort").value,
-  }), "Puertos guardados. La cámara puede reiniciarse.");
+  }), t("Puertos guardados. La cámara puede reiniciarse."));
 });
 
 /* ---------------- wifi ---------------- */
 async function loadWifi() {
   const w = await cmd("getWifiConfig");
   kv($("wifiState"), [
-    ["WiFi", badge(w.isEnable === "1", "Activado", "Desactivado")],
-    ["Conexión", badge(w.isConnected === "1", "Conectada", "Sin conectar")],
-    ["Red actual", decode(w.ssid || w.connectedAP || "—")],
+    [t("WiFi"), badge(w.isEnable === "1", t("Activado"), t("Desactivado"))],
+    [t("Conexión"), badge(w.isConnected === "1", t("Conectada"), t("Sin conectar"))],
+    [t("Red actual"), decode(w.ssid || w.connectedAP || "—")],
   ]);
   if (!$("ssid").value) $("ssid").value = decode(w.ssid || "");
 }
@@ -459,7 +461,7 @@ function bars(q) {
 
 $("scanWifi").addEventListener("click", () => run(async () => {
   const btn = $("scanWifi");
-  btn.disabled = true; btn.textContent = "Buscando…";
+  btn.disabled = true; btn.textContent = t("Buscando…");
   try {
     await cmd("refreshWifiList");
     await new Promise((r) => setTimeout(r, 3000));
@@ -479,19 +481,19 @@ $("scanWifi").addEventListener("click", () => run(async () => {
       row.onclick = () => { $("ssid").value = decode(parts[0]); $("wpsk").focus(); };
       list.append(row);
     }
-    if (!list.children.length) list.innerHTML = '<div class="empty">La cámara no ve ninguna red.</div>';
-  } finally { btn.disabled = false; btn.textContent = "Buscar"; }
+    if (!list.children.length) list.innerHTML = ""; const em = document.createElement("div"); em.className = "empty"; em.textContent = t("La cámara no ve ninguna red."); list.append(em);
+  } finally { btn.disabled = false; btn.textContent = t("Buscar"); }
 }));
 
 $("saveWifi").addEventListener("click", async () => {
   const ssid = $("ssid").value.trim();
-  if (!ssid) return toast("Falta el nombre de la red", "err");
-  if (!await dialog({ title: `¿Conectar a «${ssid}»?`, body: "Si la contraseña es incorrecta, la cámara podría quedar sin conexión inalámbrica.", ok: "Conectar", danger: true })) return;
+  if (!ssid) return toast(t("Falta el nombre de la red"), "err");
+  if (!await dialog({ title: t("¿Conectar a «{ssid}»?", { ssid }), body: t("Si la contraseña es incorrecta, la cámara podría quedar sin conexión inalámbrica."), ok: t("Conectar"), danger: true })) return;
   await run(() => cmd("setWifiSetting", {
     isEnable: 1, isUseWifi: 1, ssid, netType: 0, encryptType: $("wenc").value, psk: $("wpsk").value,
     authMode: 0, keyFormat: 0, defaultKey: 1, key1: "", key2: "", key3: "", key4: "",
     key1Len: 64, key2Len: 64, key3Len: 64, key4Len: 64,
-  }), "Configuración WiFi enviada");
+  }), t("Configuración WiFi enviada"));
   $("wpsk").value = "";
 });
 
@@ -500,7 +502,7 @@ async function loadSystem() {
   const i = await cmd("getDevInfo");
   const labels = [["Modelo", "productName"], ["Número de serie", "serialNo"], ["Dirección MAC", "mac"],
                   ["Firmware", "firmwareVer"], ["Hardware", "hardwareVer"]];
-  kv($("devInfo"), labels.filter(([, k]) => i[k]).map(([l, k]) => [l, decode(i[k])]));
+  kv($("devInfo"), labels.filter(([, k]) => i[k]).map(([l, k]) => [t(l), decode(i[k])]));
   $("devName").value = decode(i.devName || "");
   const mf = await cmd("getMirrorAndFlipSetting").catch(() => null);
   if (mf) { $("mirror").checked = mf.isMirror === "1"; $("flip").checked = mf.isFlip === "1"; }
@@ -511,7 +513,7 @@ async function loadSystem() {
 $("saveName").addEventListener("click", async () => {
   const name = $("devName").value.trim();
   if (!name) return;
-  const r = await run(() => cmd("setDevName", { devName: name }), "Nombre guardado");
+  const r = await run(() => cmd("setDevName", { devName: name }), t("Nombre guardado"));
   if (r) $("camName").textContent = name;
 });
 $("mirror").addEventListener("change", () => run(() => cmd("mirrorVideo", { isMirror: $("mirror").checked ? 1 : 0 })));
@@ -522,8 +524,8 @@ seg("irSeg", (v) => run(async () => {
   return cmd(v === "on" ? "openInfraLed" : "closeInfraLed");
 }));
 $("reboot").addEventListener("click", async () => {
-  if (!await dialog({ title: "¿Reiniciar la cámara?", body: "Perderás el vídeo durante aproximadamente un minuto.", ok: "Reiniciar", danger: true })) return;
-  await run(() => cmd("rebootSystem"), "Reiniciando… vuelve en un minuto.");
+  if (!await dialog({ title: t("¿Reiniciar la cámara?"), body: t("Perderás el vídeo durante aproximadamente un minuto."), ok: t("Reiniciar"), danger: true })) return;
+  await run(() => cmd("rebootSystem"), t("Reiniciando… vuelve en un minuto."));
 });
 
 /* ---------------- arranque ---------------- */
@@ -533,7 +535,7 @@ $("reboot").addEventListener("click", async () => {
     if (s.connected) return enterApp(s.host, s.port, s.info || {});
     if (s.saved) {
       $("host").value = s.saved.host; $("port").value = s.saved.port; $("user").value = s.saved.user;
-      if (s.reason) $("loginError").textContent = s.reason;
+      if (s.reason) $("loginError").textContent = tr(s.reason);
     }
   } catch {}
   $("pwd").focus();

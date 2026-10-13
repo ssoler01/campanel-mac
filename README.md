@@ -19,6 +19,7 @@ control PTZ con posiciones guardadas y configuración de red y WiFi.
 - Sistema: nombre, espejo, volteo, infrarrojos y reinicio.
 - La contraseña se guarda en el Llavero de macOS, nunca en disco.
 - Sin dependencias: Swift + WebKit, sin servicios con root ni Python.
+- Interfaz en español e inglés (sigue el idioma del sistema; otros idiomas usan inglés).
 
 ## Compatibilidad
 
@@ -86,6 +87,7 @@ PTZ control with presets, and network/WiFi configuration.
 - System: name, mirror, flip, infrared LEDs and reboot.
 - The password is stored in the macOS Keychain, never on disk.
 - No dependencies: Swift + WebKit, no root services, no Python.
+- Interface in Spanish and English (follows the system language; other languages fall back to English).
 
 ### Compatibility
 

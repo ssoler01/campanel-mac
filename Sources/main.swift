@@ -227,7 +227,7 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
     private func deviceInfo(_ done: @escaping ([String: String]?) -> Void) {
         guard let u = camera.url("/cgi-bin/CGIProxy.fcgi", ["cmd": "getDevInfo"]) else { return done(nil) }
         api.dataTask(with: u) { [self] data, _, error in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [self] in
                 if let e = error as NSError? { lastError = "\(e.localizedDescription) [\(e.domain) \(e.code)]" }
                 done(data.flatMap(FlatXML.parse))
             }
@@ -259,7 +259,7 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
         }
         guard let u = camera.url("/cgi-bin/CGIProxy.fcgi", params) else { return fail(t, "URL inválida") }
         api.dataTask(with: u) { [self] data, _, error in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [self] in
                 if let error { return fail(t, error.localizedDescription) }
                 guard let data, let r = FlatXML.parse(data) else { return fail(t, "Respuesta no válida de la cámara") }
                 json(t, r)
@@ -271,7 +271,7 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler, URLSessionDataDelegate 
         guard camera.connected else { return fail(t, "No conectado", status: 401) }
         guard let u = camera.url("/cgi-bin/CGIProxy.fcgi", ["cmd": "snapPicture2"]) else { return fail(t, "URL inválida") }
         api.dataTask(with: u) { [self] data, resp, error in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [self] in
                 let mime = (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? ""
                 guard error == nil, let data, mime.hasPrefix("image/") else {
                     return fail(t, error?.localizedDescription ?? "La cámara no devolvió imagen")
@@ -379,6 +379,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
 
+    /// Español si el idioma preferido del sistema es español; inglés en el resto.
+    private let isSpanish = Locale.preferredLanguages.first?.lowercased().hasPrefix("es") ?? false
+    private func L(_ es: String, _ en: String) -> String { isSpanish ? es : en }
+
     private func buildMenu() {
         let main = NSMenu()
         func add(_ title: String, _ items: [NSMenuItem]) {
@@ -391,27 +395,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             return i
         }
         add("CamPanel", [
-            item("Acerca de CamPanel", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
+            item(L("Acerca de CamPanel", "About CamPanel"), #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
             .separator(),
-            item("Ocultar CamPanel", #selector(NSApplication.hide(_:)), "h"),
+            item(L("Ocultar CamPanel", "Hide CamPanel"), #selector(NSApplication.hide(_:)), "h"),
             .separator(),
-            item("Salir de CamPanel", #selector(NSApplication.terminate(_:)), "q"),
+            item(L("Salir de CamPanel", "Quit CamPanel"), #selector(NSApplication.terminate(_:)), "q"),
         ])
-        add("Edición", [
-            item("Deshacer", Selector(("undo:")), "z"),
-            item("Rehacer", Selector(("redo:")), "Z", [.command, .shift]),
+        add(L("Edición", "Edit"), [
+            item(L("Deshacer", "Undo"), Selector(("undo:")), "z"),
+            item(L("Rehacer", "Redo"), Selector(("redo:")), "Z", [.command, .shift]),
             .separator(),
-            item("Cortar", #selector(NSText.cut(_:)), "x"),
-            item("Copiar", #selector(NSText.copy(_:)), "c"),
-            item("Pegar", #selector(NSText.paste(_:)), "v"),
-            item("Seleccionar todo", #selector(NSText.selectAll(_:)), "a"),
+            item(L("Cortar", "Cut"), #selector(NSText.cut(_:)), "x"),
+            item(L("Copiar", "Copy"), #selector(NSText.copy(_:)), "c"),
+            item(L("Pegar", "Paste"), #selector(NSText.paste(_:)), "v"),
+            item(L("Seleccionar todo", "Select All"), #selector(NSText.selectAll(_:)), "a"),
         ])
-        add("Visualización", [
-            item("Pantalla completa", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]),
+        add(L("Visualización", "View"), [
+            item(L("Pantalla completa", "Enter Full Screen"), #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]),
         ])
-        add("Ventana", [
-            item("Minimizar", #selector(NSWindow.miniaturize(_:)), "m"),
-            item("Cerrar", #selector(NSWindow.performClose(_:)), "w"),
+        add(L("Ventana", "Window"), [
+            item(L("Minimizar", "Minimize"), #selector(NSWindow.miniaturize(_:)), "m"),
+            item(L("Cerrar", "Close"), #selector(NSWindow.performClose(_:)), "w"),
         ])
         NSApp.mainMenu = main
     }

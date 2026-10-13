@@ -32,12 +32,22 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-  <key>NSLocalNetworkUsageDescription</key><string>CamPanel necesita acceder a tu red local para hablar con la cámara.</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key><array><string>en</string><string>es</string></array>
+  <key>NSLocalNetworkUsageDescription</key><string>CamPanel needs access to your local network to talk to the camera.</string>
   <key>NSAppTransportSecurity</key>
   <dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 </dict>
 </plist>
 PLIST
+
+mkdir -p "$APP/Contents/Resources/en.lproj" "$APP/Contents/Resources/es.lproj"
+cat > "$APP/Contents/Resources/en.lproj/InfoPlist.strings" <<'STR'
+"NSLocalNetworkUsageDescription" = "CamPanel needs access to your local network to talk to the camera.";
+STR
+cat > "$APP/Contents/Resources/es.lproj/InfoPlist.strings" <<'STR'
+"NSLocalNetworkUsageDescription" = "CamPanel necesita acceder a tu red local para hablar con la cámara.";
+STR
 
 codesign --force --deep --sign - "$APP"
 echo "✓ Listo: $(pwd)/$APP"
