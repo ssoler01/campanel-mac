@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CamPanel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ Conexión ============ -->
+<div id="connect" class="screen">
+  <form id="loginForm" class="connect-card" autocomplete="off">
+    <div class="app-mark">
+      <svg viewBox="0 0 48 48" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17a3 3 0 0 1 3-3h4l2.5-4h13L33 14h4a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3z"/><circle cx="24" cy="25" r="8"/><circle cx="24" cy="25" r="2.6" fill="currentColor" stroke="none"/></svg>
+    </div>
+    <h1>CamPanel</h1>
+    <p class="sub">Conecta con tu cámara</p>
+    <div class="grid2">
+      <label class="field"><span>Dirección IP</span><input id="host" placeholder="192.168.1.50" inputmode="decimal" spellcheck="false" required></label>
+      <label class="field narrow"><span>Puerto</span><input id="port" value="88" inputmode="numeric" required></label>
+    </div>
+    <label class="field"><span>Usuario</span><input id="user" value="admin" spellcheck="false" autocapitalize="off" required></label>
+    <label class="field"><span>Contraseña</span><input id="pwd" type="password"></label>
+    <label class="check"><input type="checkbox" id="remember" checked><span>Recordar en el Llavero</span></label>
+    <div id="loginError" class="form-error" role="alert"></div>
+    <button class="btn primary wide" id="loginBtn">Conectar</button>
+  </form>
+</div>
+
+<!-- ============ Aplicación ============ -->
+<div id="shell" class="hidden">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-icon"><svg viewBox="0 0 48 48" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17a3 3 0 0 1 3-3h4l2.5-4h13L33 14h4a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3z"/><circle cx="24" cy="25" r="7"/></svg></span>
+      <div><div class="brand-name" id="camName">Cámara</div><div class="brand-sub" id="camModel">—</div></div>
+    </div>
+    <nav id="nav">
+      <button data-page="live" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="3"/></svg>En vivo</button>
+      <button data-page="network"><svg viewBox="0 0 24 24"><path d="M4 17h16M7 17v-5h10v5M12 12V7M9 7h6"/></svg>Red</button>
+      <button data-page="wifi"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 16a5 5 0 0 1 6.8 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>WiFi</button>
+      <button data-page="system"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>Sistema</button>
+    </nav>
+    <div class="side-foot">
+      <div class="conn"><span class="dot" id="connDot"></span><span id="connText">Conectada</span></div>
+      <div class="conn-addr" id="connAddr"></div>
+      <button class="btn ghost small" id="btnLogout">Desconectar</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <!-- EN VIVO -->
+    <section class="page" data-page="live">
+      <header class="page-head"><h2>En vivo</h2></header>
+      <div class="live-grid">
+        <div class="stage" id="stage">
+          <img id="cam" alt="" draggable="false">
+          <div class="hud top">
+            <span class="live-pill" id="livePill"><i></i><b id="liveLabel">Conectando</b></span>
+            <span class="hud-meta" id="hudMeta"></span>
+            <span class="spacer"></span>
+            <button class="icon-btn" id="btnSnap" title="Guardar foto en Imágenes"><svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.2"/></svg></button>
+            <button class="icon-btn" id="btnFull" title="Pantalla completa"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+          </div>
+          <div class="veil" id="veil"><div class="spinner"></div><span id="veilText">Conectando con la cámara…</span></div>
+        </div>
+
+        <div class="side-stack">
+          <div class="card">
+            <div class="card-title">Control</div>
+            <div class="joy-wrap"><svg id="joy" viewBox="-100 -100 200 200"></svg></div>
+            <div class="speed">
+              <span>Velocidad</span>
+              <div class="seg" id="speedSeg">
+                <button data-v="0">1</button><button data-v="1">2</button><button data-v="2" class="on">3</button><button data-v="3">4</button><button data-v="4">5</button>
+              </div>
+            </div>
+            <div class="hint">Mantén pulsado o usa las flechas del teclado</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head"><h3>Posiciones</h3><span class="muted" id="presetCount"></span></div>
+      <div class="presets" id="presets"></div>
+    </section>
+
+    <!-- RED -->
+    <section class="page hidden" data-page="network">
+      <header class="page-head"><h2>Red</h2></header>
+      <div class="card">
+        <div class="card-title">Dirección IP</div>
+        <div class="row-set">
+          <div class="row"><div><b>Modo</b><small>Cómo obtiene la cámara su dirección</small></div>
+            <div class="seg" id="ipMode"><button data-v="1">Automático (DHCP)</button><button data-v="0">Manual</button></div></div>
+          <div class="grid-form">
+            <label class="field"><span>Dirección IP</span><input id="ip" spellcheck="false"></label>
+            <label class="field"><span>Máscara de subred</span><input id="mask" spellcheck="false"></label>
+            <label class="field"><span>Puerta de enlace</span><input id="gate" spellcheck="false"></label>
+            <label class="field"><span>DNS principal</span><input id="dns1" spellcheck="false"></label>
+            <label class="field"><span>DNS secundario</span><input id="dns2" spellcheck="false"></label>
+          </div>
+        </div>
+        <div class="card-foot"><button class="btn primary" id="saveIp">Aplicar</button></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Puertos</div>
+        <div class="grid-form">
+          <label class="field"><span>Web (HTTP)</span><input id="webPort" inputmode="numeric"></label>
+          <label class="field"><span>HTTPS</span><input id="httpsPort" inputmode="numeric"></label>
+          <label class="field"><span>Medios / RTSP</span><input id="mediaPort" inputmode="numeric"></label>
+          <label class="field"><span>ONVIF</span><input id="onvifPort" inputmode="numeric"></label>
+        </div>
+        <div class="card-foot"><button class="btn primary" id="savePorts">Aplicar</button></div>
+      </div>
+    </section>
+
+    <!-- WIFI -->
+    <section class="page hidden" data-page="wifi">
+      <header class="page-head"><h2>WiFi</h2></header>
+      <div class="card">
+        <div class="card-title">Estado</div>
+        <div class="kv" id="wifiState"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Redes disponibles <button class="btn ghost small push" id="scanWifi">Buscar</button></div>
+        <div class="netlist" id="wifiList"><div class="empty">Pulsa «Buscar» para listar las redes que ve la cámara.</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Conectar a una red</div>
+        <div class="grid-form">
+          <label class="field"><span>Nombre (SSID)</span><input id="ssid" spellcheck="false"></label>
+          <label class="field"><span>Contraseña</span><input id="wpsk" type="password" autocomplete="off"></label>
+          <label class="field"><span>Seguridad</span>
+            <select id="wenc"><option value="3">WPA / WPA2</option><option value="0">Abierta</option><option value="1">WEP</option></select></label>
+        </div>
+        <div class="card-foot"><button class="btn primary" id="saveWifi">Conectar</button></div>
+      </div>
+    </section>
+
+    <!-- SISTEMA -->
+    <section class="page hidden" data-page="system">
+      <header class="page-head"><h2>Sistema</h2></header>
+      <div class="card">
+        <div class="card-title">Dispositivo</div>
+        <div class="kv" id="devInfo"></div>
+        <div class="inline-form">
+          <label class="field grow"><span>Nombre de la cámara</span><input id="devName"></label>
+          <button class="btn" id="saveName">Guardar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Imagen</div>
+        <div class="row-set">
+          <div class="row"><div><b>Espejo horizontal</b><small>Invierte la imagen de izquierda a derecha</small></div><label class="switch"><input type="checkbox" id="mirror"><i></i></label></div>
+          <div class="row"><div><b>Voltear vertical</b><small>Para cámaras montadas en el techo</small></div><label class="switch"><input type="checkbox" id="flip"><i></i></label></div>
+          <div class="row"><div><b>Infrarrojos</b><small>Visión nocturna</small></div>
+            <div class="seg" id="irSeg"><button data-v="auto">Auto</button><button data-v="on">Encendidos</button><button data-v="off">Apagados</button></div></div>
+        </div>
+      </div>
+      <div class="card danger-zone">
+        <div class="row"><div><b>Reiniciar cámara</b><small>Tarda aproximadamente un minuto en volver</small></div><button class="btn danger" id="reboot">Reiniciar</button></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toasts"></div>
+<div id="modal" class="modal hidden"><div class="modal-box" role="dialog" aria-modal="true">
+  <h3 id="mTitle"></h3><p id="mBody"></p>
+  <input id="mInput" class="hidden" spellcheck="false">
+  <div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn primary" id="mOk">Aceptar</button></div>
+</div></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# compilación
+build/
+*.app
+
+# Python
+__pycache__/
+*.pyc
+
+# generados / locales
+*.log
+Icon/icon1024.png
+Icon/AppIcon.iconset/
